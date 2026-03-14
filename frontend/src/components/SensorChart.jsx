@@ -22,7 +22,7 @@ export default function SensorChart({ data, sensorType, loading }) {
 
   return (
     <div style={{ background: '#1e293b', borderRadius: 12, padding: '24px 8px 16px' }}>
-      {loading ? (
+      {loading && data.length === 0 ? (
         <p style={{ textAlign: 'center', color: '#475569', padding: 40 }}>Betöltés...</p>
       ) : data.length === 0 ? (
         <p style={{ textAlign: 'center', color: '#475569', padding: 40 }}>Nincs adat a kiválasztott időszakra.</p>

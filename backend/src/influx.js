@@ -8,5 +8,9 @@ export const bucket = process.env.INFLUXDB_BUCKET || 'sensors';
 
 const client = new InfluxDB({ url, token });
 
-export const writeApi = client.getWriteApi(org, bucket, 'ns');
 export const queryApi = client.getQueryApi(org);
+
+// Minden write-hoz külön writeApi példány – elkerüli a megosztott buffer problémáját
+export function createWriteApi() {
+  return client.getWriteApi(org, bucket, 'ns');
+}

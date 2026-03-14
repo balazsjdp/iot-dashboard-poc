@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { Point } from '@influxdata/influxdb-client';
-import { writeApi, queryApi, bucket } from '../influx.js';
+import { createWriteApi, queryApi, bucket } from '../influx.js';
 
 const router = Router();
 
@@ -17,8 +17,9 @@ router.post('/data', async (req, res) => {
     .tag('sensor_type', sensorType)
     .floatField('value', parseFloat(value));
 
+  const writeApi = createWriteApi();
   writeApi.writePoint(point);
-  await writeApi.flush();
+  await writeApi.close();
 
   res.status(201).json({ ok: true });
 });

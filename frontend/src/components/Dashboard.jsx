@@ -16,7 +16,8 @@ export default function Dashboard() {
   const [customRange, setCustomRange] = useState(null);
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [liveMode, setLiveMode] = useState(false);
+  const [liveFrom, setLiveFrom] = useState(() => toLocalDatetimeValue(new Date(Date.now() - 3600_000)));
   const [lastUpdated, setLastUpdated] = useState(null);
 
   // Szenzor lista betöltés
@@ -35,12 +36,17 @@ export default function Dashboard() {
     setLoading(true);
     try {
       let url;
-      if (customRange) {
+      if (liveMode) {
+        const from = new Date(liveFrom).toISOString();
+        const to = new Date().toISOString();
+        url = `/api/data?sensorId=${selectedSensor}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+      } else if (customRange) {
         const from = new Date(customRange.from).toISOString();
         const to = new Date(customRange.to).toISOString();
         url = `/api/data?sensorId=${selectedSensor}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
       } else {
-        url = `/api/data?sensorId=${selectedSensor}&from=${interval}`;
+        const to = new Date().toISOString();
+        url = `/api/data?sensorId=${selectedSensor}&from=${interval}&to=${encodeURIComponent(to)}`;
       }
       const res = await fetch(url);
       const json = await res.json();
@@ -51,19 +57,19 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }, [selectedSensor, interval, customRange]);
+  }, [selectedSensor, interval, customRange, liveMode, liveFrom]);
 
-  // Adatok betöltése szenzor/intervallum váltáskor
+  // Adatok betöltése szenzor/intervallum/live váltáskor
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Auto-refresh 5 másodpercenként
+  // LIVE mód: 5 másodpercenként frissít
   useEffect(() => {
-    if (!autoRefresh) return;
+    if (!liveMode) return;
     const id = window.setInterval(fetchData, 5000);
     return () => window.clearInterval(id);
-  }, [autoRefresh, fetchData]);
+  }, [liveMode, fetchData]);
 
   const currentSensor = sensors.find(s => s.sensorId === selectedSensor);
 
@@ -77,8 +83,13 @@ export default function Dashboard() {
     setCustomRange({ from, to });
   };
 
-  const defaultCustomFrom = toLocalDatetimeValue(new Date(Date.now() - 3600_000));
-  const defaultCustomTo = toLocalDatetimeValue(new Date());
+  const handleLiveToggle = () => {
+    setLiveMode(v => !v);
+  };
+
+  const now = lastUpdated ?? new Date();
+  const defaultCustomFrom = toLocalDatetimeValue(new Date(now - 3600_000));
+  const defaultCustomTo = toLocalDatetimeValue(now);
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 16px' }}>
@@ -114,20 +125,36 @@ export default function Dashboard() {
               onChange={id => { setSelectedSensor(id); setCustomRange(null); }}
             />
           )}
-          <IntervalSelector active={interval} onChange={handleIntervalChange} />
+          {!liveMode && (
+            <IntervalSelector active={interval} onChange={handleIntervalChange} />
+          )}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <DateRangePicker
-            from={customRange?.from ?? defaultCustomFrom}
-            to={customRange?.to ?? defaultCustomTo}
-            onChange={handleCustomRange}
-          />
+          {liveMode ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <label style={{ fontSize: '0.875rem', color: '#94a3b8' }}>Kezdő időpont:</label>
+              <input
+                type="datetime-local"
+                value={liveFrom}
+                onChange={e => setLiveFrom(e.target.value)}
+              />
+              <span style={{ fontSize: '0.75rem', color: '#475569' }}>
+                → {lastUpdated ? lastUpdated.toLocaleTimeString('hu-HU') : 'most'}
+              </span>
+            </div>
+          ) : (
+            <DateRangePicker
+              from={customRange?.from ?? defaultCustomFrom}
+              to={customRange?.to ?? defaultCustomTo}
+              onChange={handleCustomRange}
+            />
+          )}
           <button
-            className={autoRefresh ? 'active' : ''}
-            onClick={() => setAutoRefresh(v => !v)}
+            className={liveMode ? 'active' : ''}
+            onClick={handleLiveToggle}
           >
-            {autoRefresh ? '⏸ Auto-frissítés' : '▶ Auto-frissítés'}
+            {liveMode ? '● LIVE' : '○ LIVE'}
           </button>
         </div>
       </div>
